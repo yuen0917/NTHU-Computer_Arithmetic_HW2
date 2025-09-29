@@ -43,6 +43,9 @@ This repository contains the following Verilog modules:
 - `moving_avg_filter.v`
 - `rca_adder_64.v`
 - `carry_sel_adder_64.v`
+- `adders_top.v`
+- `moving_avg_filter_tb.v`
+- `adders_top_tb.v`
 - `HW2_Vivado/`: Vivado project directory (tool-generated)
 - `HW2.pdf`: Homework specification
 
@@ -157,14 +160,49 @@ carry_sel_adder_64 #(
 
 ---
 
+### 4) adders_top
+
+- **Purpose**:
+  - Convenience top that instantiates both 64-bit adders for side-by-side comparison.
+- **Parameter**:
+  - `CSA_BLOCK_WIDTH`: block width for `carry_sel_adder_64` (default 16)
+- **Interface**:
+  - RCA inputs: `a_rca[63:0]`, `b_rca[63:0]`, `cin_rca`
+  - CSA inputs: `a_csa[63:0]`, `b_csa[63:0]`, `cin_csa`
+  - RCA outputs: `sum_rca[63:0]`, `cout_rca`
+  - CSA outputs: `sum_csa[63:0]`, `cout_csa`
+
+Instantiation example:
+
+```verilog
+wire [63:0] sum_rca, sum_csa;
+wire        cout_rca, cout_csa;
+
+adders_top #(
+    .CSA_BLOCK_WIDTH(16)
+) u_top (
+    .a_rca(a_rca), .b_rca(b_rca), .cin_rca(cin_rca),
+    .a_csa(a_csa), .b_csa(b_csa), .cin_csa(cin_csa),
+    .sum_rca(sum_rca), .cout_rca(cout_rca),
+    .sum_csa(sum_csa), .cout_csa(cout_csa)
+);
+```
+
+---
+
 ## Simulation and Verification
 
 You may use Icarus Verilog, Verilator, or Vivado Simulator.
 
-- **Icarus Verilog example**:
-  - Compile: `iverilog -g2012 -o sim.out moving_avg_filter.v rca_adder_64.v carry_sel_adder_64.v tb.v`
-  - Run: `vvp sim.out`
-  - Waves: add `$dumpfile`/`$dumpvars` to produce `wave.vcd`, then inspect with GTKWave.
+- **Icarus Verilog examples (per testbench)**:
+  - Moving average filter TB:
+    - Compile: `iverilog -g2012 -o maf_tb.out moving_avg_filter.v moving_avg_filter_tb.v`
+    - Run: `vvp maf_tb.out`
+    - Waves: generates `moving_avg_filter_tb.vcd`
+  - Adders top TB:
+    - Compile: `iverilog -g2012 -o adders_tb.out rca_adder_64.v carry_sel_adder_64.v adders_top.v adders_top_tb.v`
+    - Run: `vvp adders_tb.out`
+    - Waves: generates `adders_top_tb.vcd`
 
 - **Vivado Simulator**:
   - In `HW2_Vivado`, add a testbench and include the three RTL files in simulation sources.
