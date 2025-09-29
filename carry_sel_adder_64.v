@@ -1,3 +1,6 @@
+// ============================================================
+// 64-bit Carry-Select Adder (Vivado will map to native CARRY4)
+// ============================================================
 module carry_sel_adder_64 (
 	input  wire [63:0] a,
 	input  wire [63:0] b,

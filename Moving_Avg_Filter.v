@@ -1,3 +1,4 @@
+// ============================================================
 // Moving Average Filter (N=16, WIDTH=16)
 // Interface:
 //   - Synchronous, one-sample-per-cycle when in_valid=1
@@ -5,6 +6,7 @@
 // Notes:
 //   - Input/Output use 2's complement signed representation
 //   - Division by N(=16) is implemented by arithmetic right shift (>>> 4)
+// ============================================================
 
 module moving_avg_filter #(
 	parameter WIDTH = 16,
