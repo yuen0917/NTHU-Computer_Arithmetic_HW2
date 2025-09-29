@@ -1,0 +1,55 @@
+# ============================
+# Vivado generated artifacts
+# ============================
+HW2_Vivado/**
+.Xil/**
+*.runs/**
+*.cache/**
+*.hw/**
+*.ip_user_files/**
+*.sim/**
+*.gen/**
+*.jou
+*.log
+*.str
+*.wdb
+*.dcp
+*.bit
+*.bin
+*.mmi
+
+# If you wish to version-control the project file, remove this line
+*.xpr
+
+# ============================
+# Simulation outputs
+# ============================
+sim.out
+*.vcd
+*.fst
+*.vpd
+*.saif
+
+# Verilator
+obj_dir/**
+logs/**
+
+# ============================
+# OS/editor files
+# ============================
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/**
+.vscode/**
+
+# ============================
+# Temporary files
+# ============================
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.lock
+

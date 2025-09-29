@@ -207,5 +207,3 @@ Test recommendations:
 
 - Source comments are in English for maintainability.
 - If reusing or referencing, please cite the source and document modifications in your report.
-
-
