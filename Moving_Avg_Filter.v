@@ -20,6 +20,7 @@ module moving_avg_filter #(
 
 	// For N=16, SHIFT = log2(N) = 4
 	localparam SHIFT = 4;
+
 	// Sum width: WIDTH + SHIFT (sufficient for accumulating N samples)
 	localparam SUM_WIDTH = WIDTH + SHIFT;
 
@@ -46,11 +47,11 @@ module moving_avg_filter #(
 			for (i = 0; i < N; i = i + 1) begin
 				window[i] <= {WIDTH{1'b0}};
 			end
-			ptr       <= {SHIFT{1'b0}};
-			count     <= { (SHIFT+1) {1'b0} };
-			sum       <= {SUM_WIDTH{1'b0}};
-			out_valid <= 1'b0;
-			out_sample<= {WIDTH{1'b0}};
+			ptr        <= {SHIFT{1'b0}};
+			count      <= { (SHIFT+1) {1'b0} };
+			sum        <= {SUM_WIDTH{1'b0}};
+			out_valid  <= 1'b0;
+			out_sample <= {WIDTH{1'b0}};
 		end else begin
 			out_valid <= 1'b0; // default low; asserted only when producing output
 			if (in_valid) begin
