@@ -19,20 +19,20 @@ module carry_sel_adder_64 (
 	genvar i;
 	generate
 		for (i = 1; i < 4; i = i + 1) begin : cs_block
+			// Pre-calculate two cases
 			wire [BLOCK_WIDTH:0] sum0; // cin=0
 			wire [BLOCK_WIDTH:0] sum1; // cin=1
 
-			// Pre-calculate two cases
-			assign {sum0[BLOCK_WIDTH], sum0[BLOCK_WIDTH - 1:0]} =
-			       a[i * BLOCK_WIDTH +: BLOCK_WIDTH] +
-			       b[i * BLOCK_WIDTH +: BLOCK_WIDTH] + 1'b0;
+			// Plain Verilog part-select indices
+			localparam integer L = i * BLOCK_WIDTH;
+			localparam integer H = i * BLOCK_WIDTH + BLOCK_WIDTH - 1;
 
-			assign {sum1[BLOCK_WIDTH], sum1[BLOCK_WIDTH-1:0]} =
-			       a[i * BLOCK_WIDTH +: BLOCK_WIDTH] +
-			       b[i * BLOCK_WIDTH +: BLOCK_WIDTH] + 1'b1;
+			// Pre-calculate two cases
+			assign {sum0[BLOCK_WIDTH], sum0[BLOCK_WIDTH - 1:0]} = a[H:L] + b[H:L] + 1'b0;
+			assign {sum1[BLOCK_WIDTH], sum1[BLOCK_WIDTH - 1:0]} = a[H:L] + b[H:L] + 1'b1;
 
 			// Select based on the carry of the previous block
-			assign {carry[i], sum[i * BLOCK_WIDTH +: BLOCK_WIDTH]} = carry[i - 1] ? sum1 : sum0;
+			assign {carry[i], sum[H:L]} = carry[i - 1] ? sum1 : sum0;
 		end
 	endgenerate
 

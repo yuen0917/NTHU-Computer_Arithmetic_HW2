@@ -177,7 +177,7 @@ module moving_avg_filter_tb;
         // Let outputs settle a few cycles
         repeat (10) @(negedge clk);
 
-        $display("TB completed without mismatches.");
+        $display("TB completed without mismatches. WIDTH=%0d N=%0d", WIDTH, N);
         $finish;
     end
 

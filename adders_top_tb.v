@@ -1,11 +1,10 @@
 `timescale 1ns/1ps
 
 // ============================================================
-// Testbench for adders_top
-// - Instantiates adders_top (RCA + CSA)
-// - Drives identical inputs to both adders, then independent inputs
-// - Checks results against a reference model (a + b + cin)
-// - Cross-compares RCA vs CSA when inputs are identical
+// Testbench for adders_top (synchronous wrapper)
+// - Drives inputs through registered interface (clk/rst_n)
+// - Waits pipeline latency and checks against reference model
+// - Parameterizable to test CSA or RCA implementation
 // ============================================================
 // `include "rca_adder_64.v"
 // `include "carry_sel_adder_64.v"
@@ -13,34 +12,30 @@
 
 module adders_top_tb;
 
+    // Clock/Reset
+    reg clk;
+    reg rst_n;
+
     // DUT I/O
-    reg  [63:0] a_rca;
-    reg  [63:0] b_rca;
-    reg         cin_rca;
+    reg  [63:0] a_in;
+    reg  [63:0] b_in;
+    reg         cin_in;
+    wire [63:0] sum_out;
+    wire        cout_out;
 
-    reg  [63:0] a_csa;
-    reg  [63:0] b_csa;
-    reg         cin_csa;
-
-    wire [63:0] sum_rca;
-    wire        cout_rca;
-    wire [63:0] sum_csa;
-    wire        cout_csa;
-
-    // Device Under Test
+    // Device Under Test (set USE_CSA=1 to test CSA, 0 for RCA)
+    localparam USE_CSA_TB = 0;
     adders_top #(
+        .USE_CSA(USE_CSA_TB),
         .CSA_BLOCK_WIDTH(16)
     ) dut (
-        .a_rca(a_rca),
-        .b_rca(b_rca),
-        .cin_rca(cin_rca),
-        .a_csa(a_csa),
-        .b_csa(b_csa),
-        .cin_csa(cin_csa),
-        .sum_rca(sum_rca),
-        .cout_rca(cout_rca),
-        .sum_csa(sum_csa),
-        .cout_csa(cout_csa)
+        .clk(clk),
+        .rst_n(rst_n),
+        .a_in(a_in),
+        .b_in(b_in),
+        .cin_in(cin_in),
+        .sum_out(sum_out),
+        .cout_out(cout_out)
     );
 
     // Reference model: compute 65-bit result {carry,sum}
@@ -53,51 +48,17 @@ module adders_top_tb;
         end
     endfunction
 
-    task check_pair_same_inputs(input [63:0] a, input [63:0] b, input cin);
+    // Single-DUT check with registered pipeline (2-cycle latency)
+    task check_vector(input [63:0] a, input [63:0] b, input cin);
         reg [64:0] exp;
         begin
-            a_rca  = a; b_rca  = b; cin_rca  = cin;
-            a_csa  = a; b_csa  = b; cin_csa  = cin;
-            #1; // allow settle
             exp = ref_add(a, b, cin);
-            if ({cout_rca, sum_rca} !== exp) begin
-                $display("[RCA mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
-                         a, b, cin, exp[64], exp[63:0], cout_rca, sum_rca);
-                $fatal(1);
-            end
-            if ({cout_csa, sum_csa} !== exp) begin
-                $display("[CSA mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
-                         a, b, cin, exp[64], exp[63:0], cout_csa, sum_csa);
-                $fatal(1);
-            end
-            // Cross-compare
-            if ({cout_rca, sum_rca} !== {cout_csa, sum_csa}) begin
-                $display("[Cross mismatch] RCA={%0d,%h} CSA={%0d,%h}", cout_rca, sum_rca, cout_csa, sum_csa);
-                $fatal(1);
-            end
-        end
-    endtask
-
-    task check_pair_independent_inputs(
-        input [63:0] a_r, input [63:0] b_r, input cin_r,
-        input [63:0] a_c, input [63:0] b_c, input cin_c
-    );
-        reg [64:0] exp_r;
-        reg [64:0] exp_c;
-        begin
-            a_rca = a_r; b_rca = b_r; cin_rca = cin_r;
-            a_csa = a_c; b_csa = b_c; cin_csa = cin_c;
-            #1;
-            exp_r = ref_add(a_r, b_r, cin_r);
-            exp_c = ref_add(a_c, b_c, cin_c);
-            if ({cout_rca, sum_rca} !== exp_r) begin
-                $display("[RCA mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
-                         a_r, b_r, cin_r, exp_r[64], exp_r[63:0], cout_rca, sum_rca);
-                $fatal(1);
-            end
-            if ({cout_csa, sum_csa} !== exp_c) begin
-                $display("[CSA mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
-                         a_c, b_c, cin_c, exp_c[64], exp_c[63:0], cout_csa, sum_csa);
+            a_in = a; b_in = b; cin_in = cin;
+            @(posedge clk); // input registered
+            @(posedge clk); // output registered
+            if ({cout_out, sum_out} !== exp) begin
+                $display("[DUT mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
+                         a, b, cin, exp[64], exp[63:0], cout_out, sum_out);
                 $fatal(1);
             end
         end
@@ -114,37 +75,44 @@ module adders_top_tb;
 
     integer i;
 
+    // Clock generation
+    initial begin
+        clk = 1'b0;
+        forever #5 clk = ~clk; // 100MHz
+    end
+
+    // Reset
+    initial begin
+        rst_n = 1'b0;
+        a_in = 64'd0; b_in = 64'd0; cin_in = 1'b0;
+        repeat (3) @(posedge clk);
+        rst_n = 1'b1;
+    end
+
+    // Main stimulus
     initial begin
         // Wave dump
         $dumpfile("adders_top_tb.vcd");
         $dumpvars(0, adders_top_tb);
 
-        // Init
-        a_rca = 64'd0; b_rca = 64'd0; cin_rca = 1'b0;
-        a_csa = 64'd0; b_csa = 64'd0; cin_csa = 1'b0;
+        // Wait for reset deassertion
+        @(posedge rst_n);
+        @(posedge clk);
 
-        // 1) Edge cases with identical inputs
-        check_pair_same_inputs(64'h0000_0000_0000_0000, 64'h0000_0000_0000_0000, 1'b0);
-        check_pair_same_inputs(64'hFFFF_FFFF_FFFF_FFFF, 64'h0000_0000_0000_0001, 1'b0);
-        check_pair_same_inputs(64'hFFFF_FFFF_FFFF_FFFF, 64'hFFFF_FFFF_FFFF_FFFF, 1'b1);
-        check_pair_same_inputs(64'h8000_0000_0000_0000, 64'h8000_0000_0000_0000, 1'b0);
-        check_pair_same_inputs(64'h7FFF_FFFF_FFFF_FFFF, 64'h0000_0000_0000_0001, 1'b1);
-        check_pair_same_inputs(64'hAAAA_AAAA_AAAA_AAAA, 64'h5555_5555_5555_5555, 1'b0);
+        // 1) Edge cases
+        check_vector(64'h0000_0000_0000_0000, 64'h0000_0000_0000_0000, 1'b0);
+        check_vector(64'hFFFF_FFFF_FFFF_FFFF, 64'h0000_0000_0000_0001, 1'b0);
+        check_vector(64'hFFFF_FFFF_FFFF_FFFF, 64'hFFFF_FFFF_FFFF_FFFF, 1'b1);
+        check_vector(64'h8000_0000_0000_0000, 64'h8000_0000_0000_0000, 1'b0);
+        check_vector(64'h7FFF_FFFF_FFFF_FFFF, 64'h0000_0000_0000_0001, 1'b1);
+        check_vector(64'hAAAA_AAAA_AAAA_AAAA, 64'h5555_5555_5555_5555, 1'b0);
 
-        // 2) Random identical inputs
-        for (i = 0; i < 200; i = i + 1) begin
-            check_pair_same_inputs(rand64(0), rand64(0), $random & 1);
+        // 2) Randoms
+        for (i = 0; i < 400; i = i + 1) begin
+            check_vector(rand64(0), rand64(0), $random & 1);
         end
 
-        // 3) Independent inputs (RCA and CSA different)
-        for (i = 0; i < 200; i = i + 1) begin
-            check_pair_independent_inputs(
-                rand64(0), rand64(0), $random & 1,
-                rand64(0), rand64(0), $random & 1
-            );
-        end
-
-        $display("adders_top_tb completed without mismatches.");
+        $display("adders_top_tb completed without mismatches. USE_CSA=%0d(0=RCA, 1=CSA)", USE_CSA_TB);
         $finish;
     end
 

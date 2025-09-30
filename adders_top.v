@@ -1,62 +1,76 @@
 // ============================================================
-// Top module that instantiates both 64-bit adders for comparison/testing
-// - rca_adder_64: Ripple Carry Adder
-// - carry_sel_adder_64: Carry-Select Adder (parameterized block width)
-//
-// Interface:
-//   a[63:0], b[63:0], cin  -> common inputs
-//   sum_rca[63:0], cout_rca -> outputs from RCA
-//   sum_csa[63:0], cout_csa -> outputs from CSA
-//
-// Notes:
-//   This top is intended for simulation/verification or quick on-chip comparison.
-//   Timing/resource analysis should still be done on each module separately.
+// Synchronous wrapper top for timing analysis of 64-bit adders
+// - Select between CSA and RCA via parameter USE_CSA
+// - Registers inputs and outputs to expose adder path clearly
 // ============================================================
-// `include "rca_adder_64.v"
-// `include "carry_sel_adder_64.v"
 
 module adders_top #(
-    parameter integer CSA_BLOCK_WIDTH = 16  // can be set to 8 for more segments
+    parameter USE_CSA = 1,               // 1 = carry-select, 0 = ripple
+    parameter integer CSA_BLOCK_WIDTH = 16 // CSA segment width (e.g., 16 or 8)
 ) (
-    // RCA inputs
-    input  wire [63:0] a_rca,
-    input  wire [63:0] b_rca,
-    input  wire        cin_rca,
-
-    // CSA inputs
-    input  wire [63:0] a_csa,
-    input  wire [63:0] b_csa,
-    input  wire        cin_csa,
-
-    // RCA outputs
-    output wire [63:0] sum_rca,
-    output wire        cout_rca,
-
-    // CSA outputs
-    output wire [63:0] sum_csa,
-    output wire        cout_csa
+    input  wire        clk,
+    input  wire        rst_n,
+    input  wire [63:0] a_in,
+    input  wire [63:0] b_in,
+    input  wire        cin_in,
+    output reg  [63:0] sum_out,
+    output reg         cout_out
 );
 
-    // Ripple Carry Adder instance
-    rca_adder_64 u_rca (
-        .a   (a_rca),
-        .b   (b_rca),
-        .cin (cin_rca),
-        .sum (sum_rca),
-        .cout(cout_rca)
-    );
+    // Input registers
+    reg [63:0] a_r;
+    reg [63:0] b_r;
+    reg        cin_r;
 
-    // Carry-Select Adder instance
-    carry_sel_adder_64 #(
-        .BLOCK_WIDTH(CSA_BLOCK_WIDTH)
-    ) u_csa (
-        .a   (a_csa),
-        .b   (b_csa),
-        .cin (cin_csa),
-        .sum (sum_csa),
-        .cout(cout_csa)
-    );
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            a_r  <= 64'd0;
+            b_r  <= 64'd0;
+            cin_r<= 1'b0;
+        end else begin
+            a_r  <= a_in;
+            b_r  <= b_in;
+            cin_r<= cin_in;
+        end
+    end
+
+    // Adder comb outputs
+    wire [63:0] sum_w;
+    wire        cout_w;
+
+    // Select adder implementation
+    generate
+        if (USE_CSA) begin : gen_csa
+            carry_sel_adder_64 #(
+                .BLOCK_WIDTH(CSA_BLOCK_WIDTH)
+            ) u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end else begin : gen_rca
+            rca_adder_64 u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end
+    endgenerate
+
+    // Output registers
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            sum_out  <= 64'd0;
+            cout_out <= 1'b0;
+        end else begin
+            sum_out  <= sum_w;
+            cout_out <= cout_w;
+        end
+    end
 
 endmodule
-
 
