@@ -15,6 +15,7 @@ module carry_sel_adder_64 (
 	// Block 0: low 16-bit, ripple directly use FPGA carry chain
 	assign {carry[0], sum[15:0]} = a[15:0] + b[15:0] + cin;
 
+	// Block 1~3: 48-bit, pre-calculate two cases
 	genvar i;
 	generate
 		for (i = 1; i < 4; i = i + 1) begin : cs_block
@@ -31,8 +32,7 @@ module carry_sel_adder_64 (
 			       b[i * BLOCK_WIDTH +: BLOCK_WIDTH] + 1'b1;
 
 			// Select based on the carry of the previous block
-			assign {carry[i], sum[i * BLOCK_WIDTH +: BLOCK_WIDTH]} =
-			       carry[i - 1] ? sum1 : sum0;
+			assign {carry[i], sum[i * BLOCK_WIDTH +: BLOCK_WIDTH]} = carry[i - 1] ? sum1 : sum0;
 		end
 	endgenerate
 

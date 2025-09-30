@@ -104,7 +104,9 @@ module adders_top_tb;
     endtask
 
     // Helpers to produce 64-bit random values using two 32-bit $random calls
+    // Some tools require functions to have at least one input; use a dummy input.
     function [63:0] rand64;
+        input dummy;
         begin
             rand64 = { $random, $random };
         end
@@ -131,14 +133,14 @@ module adders_top_tb;
 
         // 2) Random identical inputs
         for (i = 0; i < 200; i = i + 1) begin
-            check_pair_same_inputs(rand64(), rand64(), $random & 1);
+            check_pair_same_inputs(rand64(0), rand64(0), $random & 1);
         end
 
         // 3) Independent inputs (RCA and CSA different)
         for (i = 0; i < 200; i = i + 1) begin
             check_pair_independent_inputs(
-                rand64(), rand64(), $random & 1,
-                rand64(), rand64(), $random & 1
+                rand64(0), rand64(0), $random & 1,
+                rand64(0), rand64(0), $random & 1
             );
         end
 
