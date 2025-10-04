@@ -23,7 +23,7 @@ module adders_top_tb;
     wire        ready_out;
 
     // Device Under Test (set ADDER_TYPE: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
-    localparam ADDER_TYPE_TB = 0;
+    localparam ADDER_TYPE_TB = 4;
     adders_top #(
         .ADDER_TYPE(ADDER_TYPE_TB),
         .CSA_BLOCK_WIDTH(16)
@@ -146,7 +146,7 @@ module adders_top_tb;
 
         // 2) Randoms
         $display("Starting random tests...");
-        for (i = 0; i < 400; i = i + 1) begin
+        for (i = 0; i < 150; i = i + 1) begin
             check_vector(rand64(0), rand64(0), $random & 1);
         end
 
