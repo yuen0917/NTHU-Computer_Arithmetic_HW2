@@ -1,12 +1,12 @@
 // ============================================================
 // Synchronous wrapper top for timing analysis of 64-bit adders
-// - Select between CSA and RCA via parameter USE_CSA
+// - Select adder type via parameter ADDER_TYPE (0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
 // - Serial input interface: 1-bit inputs accumulated over 64 cycles
 // - Registers inputs and outputs to expose adder path clearly
 // ============================================================
 
 module adders_top #(
-    parameter USE_CSA = 1,                 // 1 = carry-select, 0 = ripple
+    parameter ADDER_TYPE = 0,               // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
     parameter integer CSA_BLOCK_WIDTH = 16 // CSA segment width (e.g., 16 or 8)
 ) (
     input  wire        clk,
@@ -31,8 +31,12 @@ module adders_top #(
     localparam ACCUMULATING = 2'b01;
     localparam COMPUTING    = 2'b10;
 
-    reg [1:0] state;        // Current state
-    reg [1:0] next_state;   // Next state
+    reg   [1:0] state;        // Current state
+    reg   [1:0] next_state;   // Next state
+
+    // Adder comb outputs
+    wire [63:0] sum_w;
+    wire        cout_w;
 
     // State machine: State transition logic (combinational)
     always @(*) begin
@@ -133,13 +137,17 @@ module adders_top #(
         end
     end
 
-    // Adder comb outputs
-    wire [63:0] sum_w;
-    wire        cout_w;
-
     // Select adder implementation
     generate
-        if (USE_CSA) begin : gen_csa
+        if (ADDER_TYPE == 0) begin : gen_rca
+            rca_adder_64 u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end else if (ADDER_TYPE == 1) begin : gen_csa
             carry_sel_adder_64 #(
                 .BLOCK_WIDTH(CSA_BLOCK_WIDTH)
             ) u_adder (
@@ -149,7 +157,32 @@ module adders_top #(
                 .sum (sum_w),
                 .cout(cout_w)
             );
-        end else begin : gen_rca
+        end else if (ADDER_TYPE == 2) begin : gen_ling
+            ling_adder_64 u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end else if (ADDER_TYPE == 3) begin : gen_cla
+            cla_adder_64 u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end else if (ADDER_TYPE == 4) begin : gen_carry_skip
+            carry_skip_adder_64 u_adder (
+                .a   (a_r),
+                .b   (b_r),
+                .cin (cin_r),
+                .sum (sum_w),
+                .cout(cout_w)
+            );
+        end else begin : gen_default
+            // Default to RCA for invalid ADDER_TYPE
             rca_adder_64 u_adder (
                 .a   (a_r),
                 .b   (b_r),

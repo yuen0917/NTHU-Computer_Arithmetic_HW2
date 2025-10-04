@@ -6,9 +6,6 @@
 // - Waits pipeline latency and checks against reference model
 // - Parameterizable to test CSA or RCA implementation
 // ============================================================
-// `include "rca_adder_64.v"
-// `include "carry_sel_adder_64.v"
-// `include "adders_top.v"
 
 module adders_top_tb;
 
@@ -25,10 +22,10 @@ module adders_top_tb;
     wire        cout_out;
     wire        ready_out;
 
-    // Device Under Test (set USE_CSA=1 to test CSA, 0 for RCA)
-    localparam USE_CSA_TB = 0;
+    // Device Under Test (set ADDER_TYPE: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
+    localparam ADDER_TYPE_TB = 0;
     adders_top #(
-        .USE_CSA(USE_CSA_TB),
+        .ADDER_TYPE(ADDER_TYPE_TB),
         .CSA_BLOCK_WIDTH(16)
     ) dut (
         .clk(clk),
@@ -153,7 +150,7 @@ module adders_top_tb;
             check_vector(rand64(0), rand64(0), $random & 1);
         end
 
-        $display("adders_top_tb completed without mismatches. USE_CSA=%0d(0=RCA, 1=CSA)", USE_CSA_TB);
+        $display("adders_top_tb completed without mismatches. ADDER_TYPE=%0d(0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)", ADDER_TYPE_TB);
         $finish;
     end
 
