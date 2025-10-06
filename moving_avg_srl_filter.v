@@ -22,7 +22,7 @@ module moving_avg_srl_filter #(
 );
 
   // Accumulator bit width
-  localparam SUMW = WIDTH + SHIFT;
+  localparam SUM_WIDTH = WIDTH + SHIFT;
 
   // ============== SRL delay line: get x[n-N] = old_sample = dout = sample from N cycles ago ==============
   wire [WIDTH-1:0] old_sample_u;
@@ -67,28 +67,31 @@ module moving_avg_srl_filter #(
   wire signed [WIDTH-1:0] old_sample = old_sample_u;
 
   // ============== Running Sum: sum + in - old ==============
-  reg  signed [SUMW-1:0] sum;
+  reg  signed [SUM_WIDTH-1:0] sum;
 
-  wire signed [SUMW-1:0] in_ext  = {{(SUMW-WIDTH){in_sample[WIDTH-1]}},  in_sample};
-  wire signed [SUMW-1:0] old_ext = {{(SUMW-WIDTH){old_sample[WIDTH-1]}}, old_sample};
+  wire signed [SUM_WIDTH-1:0] in_ext  = {{(SUM_WIDTH-WIDTH){in_sample[WIDTH-1]}},  in_sample};
+  wire signed [SUM_WIDTH-1:0] old_ext = {{(SUM_WIDTH-WIDTH){old_sample[WIDTH-1]}}, old_sample};
 
-  wire signed [SUMW-1:0] next_sum = sum + in_ext - old_ext;
+  wire signed [SUM_WIDTH-1:0] next_sum = sum + in_ext - old_ext;
 
   // ============== Optional rounding then right shift ==============
   // Add 1 at bit position (SHIFT-1) for half-up rounding (round_add=0 if SHIFT==0)
-  wire [SUMW-1:0] round_add =
-      (DO_ROUND && (SHIFT > 0)) ? ( { {(SUMW-SHIFT){1'b0}}, 1'b1, {(SHIFT-1){1'b0}} } )
-                                : {SUMW{1'b0}};
+  wire [SUM_WIDTH-1:0] round_add = (DO_ROUND && (SHIFT > 0))
+                                   ? ({{(SUM_WIDTH-SHIFT){1'b0}}, 1'b1, {(SHIFT-1){1'b0}}})
+                                   : {SUM_WIDTH{1'b0}};
 
-  wire signed [SUMW-1:0] next_sum_rnd = next_sum + round_add;
+  wire signed [SUM_WIDTH-1:0] next_sum_rnd = next_sum + round_add;
 
   // ============== Warm-up counter (assert out_valid after receiving N samples) ==============
   reg [SHIFT:0] warm_cnt;
 
   // ============== Sequential logic: update sum and output average ==============
+
+  wire signed [SUM_WIDTH-1:0] avg_ext = next_sum_rnd >>> SHIFT;
+
   always @(posedge clk or negedge rst_n) begin
       if (!rst_n) begin
-          sum        <= {SUMW{1'b0}};
+          sum        <= {SUM_WIDTH{1'b0}};
           warm_cnt   <= { (SHIFT+1){1'b0} };
           out_valid  <= 1'b0;
           out_sample <= {WIDTH{1'b0}};
@@ -96,13 +99,7 @@ module moving_avg_srl_filter #(
           sum <= next_sum;
 
           // Average: arithmetic right shift (preserves sign)
-          // Bit slice: avg_ext[SUMW-1 : SUMW-WIDTH]
-          // Note: no saturation here (add if needed)
-          begin : gen_avg
-              reg signed [SUMW-1:0] avg_ext; // block-local temporary (Verilog-2001)
-              avg_ext = next_sum_rnd >>> SHIFT;
-              out_sample <= avg_ext[SUMW-1 : (SUMW-WIDTH)];
-          end
+          out_sample <= avg_ext[WIDTH-1:0];
 
           // Warm-up control
           if (warm_cnt < (N-1)) begin

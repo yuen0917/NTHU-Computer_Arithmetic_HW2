@@ -24,13 +24,13 @@ module moving_avg_ema_filter #(
 
   always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-      y_acc     <= {ACCW{1'b0}};
-      out_valid <= 1'b0;
-      out_sample<= {WIDTH{1'b0}};
+      y_acc      <= {ACCW{1'b0}};
+      out_valid  <= 1'b0;
+      out_sample <= {WIDTH{1'b0}};
     end else if (in_valid) begin
-      y_acc     <= y_acc + step;
-      out_sample<= y_acc[ACCW-1 -: WIDTH]; // can be changed to rounding or saturation
-      out_valid <= 1'b1;
+      y_acc      <= y_acc + step;
+      out_sample <= y_acc[ACCW-1 : (ACCW-WIDTH)]; // can be changed to rounding or saturation
+      out_valid  <= 1'b1;
     end
   end
 endmodule

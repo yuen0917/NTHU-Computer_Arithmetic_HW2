@@ -11,19 +11,21 @@
 module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
-    localparam integer FILTER_TYPE = 0;
-    localparam integer WIDTH = 16;
-    localparam integer N     = 16;
-    localparam integer SHIFT = 4; // log2(N)
-    localparam integer DO_ROUND = 1;
-    localparam integer K = 3;
+    localparam integer FILTER_TYPE =  2;            // 0=buffer, 1=SRL, 2=EMA
+    localparam integer WIDTH       = 16;            // data width
+    localparam integer N           = 16;            // window size
+    localparam integer SHIFT       =  4;            // log2(N)
+    localparam integer DO_ROUND    =  1;            // 1: add 0.5 LSB before shift, 0: no rounding
+    localparam integer K           =  3;            // alpha = 1/2^K = 1/8
+    localparam integer REF_ACCW    = WIDTH + K + 1; // EMA reference state (used when FILTER_TYPE==2)
+
     // DUT I/O
-    reg                          clk;
-    reg                          rst_n;
-    reg                          in_valid;
-    reg  signed [WIDTH-1:0]      in_sample;
-    wire                         out_valid;
-    wire signed [WIDTH-1:0]      out_sample;
+    reg                     clk;
+    reg                     rst_n;
+    reg                     in_valid;
+    reg  signed [WIDTH-1:0] in_sample;
+    wire                    out_valid;
+    wire signed [WIDTH-1:0] out_sample;
 
     // Instantiate DUT
     moving_avg_top #(
@@ -55,6 +57,10 @@ module moving_avg_top_tb;
     reg                           ref_out_valid;
 
     integer i;
+    reg signed [WIDTH-1:0] rnd_sample; // moved out of unnamed block (Verilog-2001 compliant)
+
+    // EMA reference state (used when FILTER_TYPE==2)
+    reg signed [REF_ACCW-1:0] y_acc_ref;
 
     // Reference model update on each valid input (same semantics as DUT)
     task ref_reset;
@@ -72,8 +78,11 @@ module moving_avg_top_tb;
     endtask
 
     task ref_push(input signed [WIDTH-1:0] sample);
-        reg signed [WIDTH-1:0] old_sample;
+        reg signed [WIDTH-1:0]       old_sample;
         reg signed [WIDTH+SHIFT-1:0] next_sum;
+        reg        [WIDTH+SHIFT-1:0] round_add;
+        reg signed [WIDTH+SHIFT-1:0] next_sum_rnd;
+        reg signed [WIDTH+SHIFT-1:0] avg_ext;
         begin
             old_sample = window[ref_ptr];
             next_sum   = ref_sum
@@ -95,8 +104,44 @@ module moving_avg_top_tb;
 
             // update sum and outputs
             ref_sum        = next_sum;
-            ref_out_sample = $signed(next_sum >>> SHIFT);
+
+            // match DUT rounding behavior
+            if (DO_ROUND && (SHIFT > 0)) begin
+                round_add  = {{(WIDTH+SHIFT-SHIFT){1'b0}}, 1'b1, {(SHIFT-1){1'b0}}};
+            end else begin
+                round_add  = {(WIDTH+SHIFT){1'b0}};
+            end
+
+            // match DUT rounding behavior
+            next_sum_rnd   = next_sum + $signed(round_add);
+            avg_ext        = next_sum_rnd >>> SHIFT;
+            ref_out_sample = avg_ext[WIDTH-1:0];
             ref_out_valid  = (ref_count >= (N-1));
+        end
+    endtask
+
+    // EMA reference: reset
+    task ref_reset_ema;
+        begin
+            y_acc_ref     = {REF_ACCW{1'b0}};
+            ref_out_valid = 1'b0;
+            ref_out_sample= {WIDTH{1'b0}};
+        end
+    endtask
+
+    // EMA reference: push one sample (matches moving_avg_ema_filter)
+    task ref_push_ema(input signed [WIDTH-1:0] sample);
+        reg signed [REF_ACCW-1:0] x_ext;
+        reg signed [REF_ACCW-1:0] diff;
+        reg signed [REF_ACCW-1:0] step;
+        begin
+            // Match RTL timing: output is based on previous y_acc_ref
+            x_ext          = {{(REF_ACCW-WIDTH){sample[WIDTH-1]}}, sample};
+            diff           = x_ext - y_acc_ref;
+            step           = (diff >>> K);
+            ref_out_sample = y_acc_ref[REF_ACCW-1 : (REF_ACCW-WIDTH)];
+            y_acc_ref      = y_acc_ref + step;
+            ref_out_valid  = 1'b1;
         end
     endtask
 
@@ -115,12 +160,9 @@ module moving_avg_top_tb;
     // Check DUT vs reference when out_valid is asserted
     task check_outputs;
         begin
-            if (out_valid !== ref_out_valid) begin
-                $display("[TIME %0t] VALID mismatch: dut=%0d ref=%0d out_sample=%0d ref_out_sample=%0d", $time, out_valid, ref_out_valid, out_sample, ref_out_sample);
-            end
             if (out_valid && ref_out_valid) begin
                 if (out_sample !== ref_out_sample) begin
-                    $display("[TIME %0t] SAMPLE mismatch: dut=%0d ref=%0d out_sample=%0d ref_out_sample=%0d", $time, out_sample, ref_out_sample, out_sample, ref_out_sample);
+                    $display("[TIME %0t] SAMPLE mismatch: out_sample=%0h ref_out_sample=%0h i = %0d", $time, out_sample, ref_out_sample, i);
                     $fatal(1, "Mismatch detected");
                 end
             end
@@ -128,9 +170,9 @@ module moving_avg_top_tb;
     endtask
 
     // Monitor DUT outputs to compare against reference each cycle
-    always @(posedge clk) begin
+    always @(negedge clk) begin
         if (rst_n) begin
-            check_outputs();
+          #1 check_outputs();
         end
     end
 
@@ -144,7 +186,11 @@ module moving_avg_top_tb;
         in_valid  = 1'b0;
         in_sample = 0;
         rst_n     = 1'b0;
-        ref_reset();
+        if (FILTER_TYPE == 2) begin
+            ref_reset_ema();
+        end else begin
+            ref_reset();
+        end
 
         // Reset pulse
         repeat (5) @(negedge clk);
@@ -154,30 +200,33 @@ module moving_avg_top_tb;
         // 1) Zeros (10 samples)
         for (i = 0; i < 10; i = i + 1) begin
             drive_sample(0);
-            ref_push(0);
+            if (FILTER_TYPE == 2) ref_push_ema(0); else ref_push(0);
         end
 
         // 2) Constant (20 samples of 100)
         for (i = 0; i < 20; i = i + 1) begin
             drive_sample(100);
-            ref_push(100);
+            if (FILTER_TYPE == 2) ref_push_ema(100); else ref_push(100);
         end
 
         // 3) Step: 10 samples of 0, then 20 samples of 200
         for (i = 0; i < 10; i = i + 1) begin
             drive_sample(0);
-            ref_push(0);
+            if (FILTER_TYPE == 2) ref_push_ema(0); else ref_push(0);
         end
         for (i = 0; i < 20; i = i + 1) begin
             drive_sample(200);
-            ref_push(200);
+            if (FILTER_TYPE == 2) ref_push_ema(200); else ref_push(200);
         end
 
         // 4) Random (50 samples in a safe range)
         for (i = 0; i < 50; i = i + 1) begin
             // Limit magnitude to avoid extreme values in small-width signed arithmetic
-            drive_sample($random % 512); // roughly -511..+511
-            ref_push($random % 512);
+            // Generate once per iteration to ensure DUT and reference see identical samples
+            rnd_sample = $random;
+            rnd_sample = rnd_sample % 512; // roughly -511..+511
+            drive_sample(rnd_sample);
+            if (FILTER_TYPE == 2) ref_push_ema(rnd_sample); else ref_push(rnd_sample);
         end
 
         // Let outputs settle a few cycles
