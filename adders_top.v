@@ -6,7 +6,7 @@
 // ============================================================
 
 module adders_top #(
-    parameter ADDER_TYPE = 0,               // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
+    parameter ADDER_TYPE = 0,              // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
     parameter integer CSA_BLOCK_WIDTH = 16 // CSA segment width (e.g., 16 or 8)
 ) (
     input  wire        clk,
