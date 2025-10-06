@@ -1,20 +1,22 @@
 `timescale 1ns/1ps
 
 // ============================================================
-// Testbench for moving_avg_filter
+// Testbench for moving_avg_top
 // - Drives sequences: zeros, constant, step, random
 // - Implements a reference model (same circular buffer + running sum)
 // - Compares DUT output against reference on each out_valid
 // ============================================================
-// `include "moving_avg_filter.v"
+// `include "moving_avg_top.v"
 
-module moving_avg_filter_tb;
+module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
+    localparam integer FILTER_TYPE = 0;
     localparam integer WIDTH = 16;
     localparam integer N     = 16;
     localparam integer SHIFT = 4; // log2(N)
-
+    localparam integer DO_ROUND = 1;
+    localparam integer K = 3;
     // DUT I/O
     reg                          clk;
     reg                          rst_n;
@@ -24,9 +26,13 @@ module moving_avg_filter_tb;
     wire signed [WIDTH-1:0]      out_sample;
 
     // Instantiate DUT
-    moving_avg_filter #(
+    moving_avg_top #(
+        .FILTER_TYPE(FILTER_TYPE),
         .WIDTH(WIDTH),
-        .N(N)
+        .N(N),
+        .SHIFT(SHIFT),
+        .DO_ROUND(DO_ROUND),
+        .K(K)
     ) dut (
         .clk(clk),
         .rst_n(rst_n),
@@ -41,12 +47,12 @@ module moving_avg_filter_tb;
     always #5 clk = ~clk; // 10ns period
 
     // Reference model state
-    reg  signed [WIDTH-1:0]      window [0:N-1];
-    reg  [SHIFT-1:0]             ref_ptr;
-    reg  [SHIFT:0]               ref_count;
+    reg  signed [WIDTH-1:0]       window [0:N-1];
+    reg         [SHIFT-1:0]       ref_ptr;
+    reg         [SHIFT:0]         ref_count;
     reg  signed [WIDTH+SHIFT-1:0] ref_sum;
-    reg  signed [WIDTH-1:0]      ref_out_sample;
-    reg                          ref_out_valid;
+    reg  signed [WIDTH-1:0]       ref_out_sample;
+    reg                           ref_out_valid;
 
     integer i;
 
@@ -71,8 +77,8 @@ module moving_avg_filter_tb;
         begin
             old_sample = window[ref_ptr];
             next_sum   = ref_sum
-                       + $signed({{(WIDTH+SHIFT-WIDTH){sample[WIDTH-1]}}, sample})
-                       - $signed({{(WIDTH+SHIFT-WIDTH){old_sample[WIDTH-1]}}, old_sample});
+                         + $signed({{(WIDTH+SHIFT-WIDTH){sample[WIDTH-1]}}, sample})
+                         - $signed({{(WIDTH+SHIFT-WIDTH){old_sample[WIDTH-1]}}, old_sample});
 
             // write new sample
             window[ref_ptr] = sample;
@@ -131,8 +137,8 @@ module moving_avg_filter_tb;
     // Test sequence
     initial begin
         // Wave dump
-        $dumpfile("moving_avg_filter_tb.vcd");
-        $dumpvars(0, moving_avg_filter_tb);
+        $dumpfile("moving_avg_top_tb.vcd");
+        $dumpvars(0, moving_avg_top_tb);
 
         // Init
         in_valid  = 1'b0;
