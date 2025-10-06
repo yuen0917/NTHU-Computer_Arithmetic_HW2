@@ -12,12 +12,12 @@ module moving_avg_filter #(
 	parameter WIDTH = 16,
 	parameter N = 16
 )(
-	input                          clk,
-	input                          rst_n,
-	input                          in_valid,
-	input       signed [WIDTH-1:0] in_sample,
-	output reg                     out_valid,
-	output reg  signed [WIDTH-1:0] out_sample
+	input                         clk,
+	input                         rst_n,
+	input                         in_valid,
+	input      signed [WIDTH-1:0] in_sample,
+	output reg                    out_valid,
+	output reg signed [WIDTH-1:0] out_sample
 );
 
 	// For N=16, SHIFT = log2(N) = 4, so we can use arithmetic right shift to divide by N

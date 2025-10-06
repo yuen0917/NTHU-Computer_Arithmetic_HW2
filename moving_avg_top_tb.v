@@ -116,11 +116,11 @@ module moving_avg_top_tb;
     task check_outputs;
         begin
             if (out_valid !== ref_out_valid) begin
-                $display("[TIME %0t] VALID mismatch: dut=%0d ref=%0d", $time, out_valid, ref_out_valid);
+                $display("[TIME %0t] VALID mismatch: dut=%0d ref=%0d out_sample=%0d ref_out_sample=%0d", $time, out_valid, ref_out_valid, out_sample, ref_out_sample);
             end
             if (out_valid && ref_out_valid) begin
                 if (out_sample !== ref_out_sample) begin
-                    $display("[TIME %0t] SAMPLE mismatch: dut=%0d ref=%0d", $time, out_sample, ref_out_sample);
+                    $display("[TIME %0t] SAMPLE mismatch: dut=%0d ref=%0d out_sample=%0d ref_out_sample=%0d", $time, out_sample, ref_out_sample, out_sample, ref_out_sample);
                     $fatal(1, "Mismatch detected");
                 end
             end
@@ -137,7 +137,7 @@ module moving_avg_top_tb;
     // Test sequence
     initial begin
         // Wave dump
-        $dumpfile("moving_avg_top_tb.vcd");
+        $dumpfile("../../../../../moving_avg_top_tb.vcd");
         $dumpvars(0, moving_avg_top_tb);
 
         // Init

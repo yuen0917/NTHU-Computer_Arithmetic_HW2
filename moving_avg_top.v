@@ -25,8 +25,8 @@ module moving_avg_top #(
     input                          rst_n,
     input                          in_valid,
     input       signed [WIDTH-1:0] in_sample,
-    output reg                     out_valid,
-    output reg  signed [WIDTH-1:0] out_sample
+    output                         out_valid,
+    output      signed [WIDTH-1:0] out_sample
 );
 
     // Wires for submodule outputs
@@ -92,16 +92,9 @@ module moving_avg_top #(
         end
     endgenerate
 
-    // Register outputs for timing consistency with the submodule clocks
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            out_valid  <= 1'b0;
-            out_sample <= {WIDTH{1'b0}};
-        end else begin
-            out_valid  <= out_valid_w;
-            out_sample <= out_sample_w;
-        end
-    end
+    // Directly connect submodule outputs (no extra cycle of latency)
+    assign out_valid  = out_valid_w;
+    assign out_sample = out_sample_w;
 
 endmodule
 

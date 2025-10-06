@@ -1,7 +1,8 @@
 # ============================
 # Vivado generated artifacts
 # ============================
-HW2_Vivado/**
+HW2_adders_vivado/**
+HW2_moving_avg_filter_vivado/**
 .Xil/**
 *.runs/**
 *.cache/**
