@@ -11,7 +11,7 @@
 module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
-    localparam integer FILTER_TYPE =  2;            // 0=buffer, 1=SRL, 2=EMA
+    localparam integer FILTER_TYPE =  1;            // 0=buffer, 1=SRL, 2=EMA
     localparam integer WIDTH       = 16;            // data width
     localparam integer N           = 16;            // window size
     localparam integer SHIFT       =  4;            // log2(N)
@@ -62,86 +62,84 @@ module moving_avg_top_tb;
     // EMA reference state (used when FILTER_TYPE==2)
     reg signed [REF_ACCW-1:0] y_acc_ref;
 
-    // Reference model update on each valid input (same semantics as DUT)
-    task ref_reset;
+    // Unified reference reset: choose by FILTER_TYPE
+    task ref_reset_auto;
         integer k;
         begin
-            for (k = 0; k < N; k = k + 1) begin
-                window[k] = 0;
+            if (FILTER_TYPE == 2) begin
+                // EMA reset
+                y_acc_ref      = {REF_ACCW{1'b0}};
+                ref_out_valid  = 1'b0;
+                ref_out_sample = {WIDTH{1'b0}};
+            end else begin
+                // Moving-average (buffer/SRL) reset
+                for (k = 0; k < N; k = k + 1) begin
+                    window[k] = 0;
+                end
+                ref_ptr        = 0;
+                ref_count      = 0;
+                ref_sum        = 0;
+                ref_out_valid  = 1'b0;
+                ref_out_sample = 0;
             end
-            ref_ptr       = 0;
-            ref_count     = 0;
-            ref_sum       = 0;
-            ref_out_valid = 1'b0;
-            ref_out_sample= 0;
         end
     endtask
 
-    task ref_push(input signed [WIDTH-1:0] sample);
+    // Unified reference push: choose by FILTER_TYPE
+    task ref_push_auto(input signed [WIDTH-1:0] sample);
         reg signed [WIDTH-1:0]       old_sample;
         reg signed [WIDTH+SHIFT-1:0] next_sum;
         reg        [WIDTH+SHIFT-1:0] round_add;
         reg signed [WIDTH+SHIFT-1:0] next_sum_rnd;
         reg signed [WIDTH+SHIFT-1:0] avg_ext;
+        reg signed [REF_ACCW-1:0]    x_ext;
+        reg signed [REF_ACCW-1:0]    diff;
+        reg signed [REF_ACCW-1:0]    step;
         begin
-            old_sample = window[ref_ptr];
-            next_sum   = ref_sum
-                         + $signed({{(WIDTH+SHIFT-WIDTH){sample[WIDTH-1]}}, sample})
-                         - $signed({{(WIDTH+SHIFT-WIDTH){old_sample[WIDTH-1]}}, old_sample});
-
-            // write new sample
-            window[ref_ptr] = sample;
-
-            // advance pointer
-            if (ref_ptr == N-1)
-                ref_ptr = 0;
-            else
-                ref_ptr = ref_ptr + 1'b1;
-
-            // update count up to N
-            if (ref_count < N)
-                ref_count = ref_count + 1'b1;
-
-            // update sum and outputs
-            ref_sum        = next_sum;
-
-            // match DUT rounding behavior
-            if (DO_ROUND && (SHIFT > 0)) begin
-                round_add  = {{(WIDTH+SHIFT-SHIFT){1'b0}}, 1'b1, {(SHIFT-1){1'b0}}};
+            if (FILTER_TYPE == 2) begin
+                // EMA behavior
+                x_ext          = {{(REF_ACCW-WIDTH){sample[WIDTH-1]}}, sample};
+                diff           = x_ext - y_acc_ref;
+                step           = (diff >>> K);
+                ref_out_sample = y_acc_ref[REF_ACCW-1 : (REF_ACCW-WIDTH)];
+                y_acc_ref      = y_acc_ref + step;
+                ref_out_valid  = 1'b1;
             end else begin
-                round_add  = {(WIDTH+SHIFT){1'b0}};
+                // Moving-average (buffer/SRL) behavior
+                old_sample = window[ref_ptr];
+                next_sum   = ref_sum
+                             + $signed({{(WIDTH+SHIFT-WIDTH){sample[WIDTH-1]}}, sample})
+                             - $signed({{(WIDTH+SHIFT-WIDTH){old_sample[WIDTH-1]}}, old_sample});
+
+                // write new sample
+                window[ref_ptr] = sample;
+
+                // advance pointer
+                if (ref_ptr == N-1)
+                    ref_ptr = 0;
+                else
+                    ref_ptr = ref_ptr + 1'b1;
+
+                // update count up to N
+                if (ref_count < N)
+                    ref_count = ref_count + 1'b1;
+
+                // update sum and outputs
+                ref_sum        = next_sum;
+
+                // match DUT rounding behavior
+                if (DO_ROUND && (SHIFT > 0) && FILTER_TYPE == 1) begin
+                    round_add  = {{(WIDTH+SHIFT-SHIFT){1'b0}}, 1'b1, {(SHIFT-1){1'b0}}};
+                end else begin
+                    round_add  = {(WIDTH+SHIFT){1'b0}};
+                end
+
+                // match DUT rounding behavior
+                next_sum_rnd   = next_sum + $signed(round_add);
+                avg_ext        = next_sum_rnd >>> SHIFT;
+                ref_out_sample = avg_ext[WIDTH-1:0];
+                ref_out_valid  = (ref_count >= (N-1));
             end
-
-            // match DUT rounding behavior
-            next_sum_rnd   = next_sum + $signed(round_add);
-            avg_ext        = next_sum_rnd >>> SHIFT;
-            ref_out_sample = avg_ext[WIDTH-1:0];
-            ref_out_valid  = (ref_count >= (N-1));
-        end
-    endtask
-
-    // EMA reference: reset
-    task ref_reset_ema;
-        begin
-            y_acc_ref     = {REF_ACCW{1'b0}};
-            ref_out_valid = 1'b0;
-            ref_out_sample= {WIDTH{1'b0}};
-        end
-    endtask
-
-    // EMA reference: push one sample (matches moving_avg_ema_filter)
-    task ref_push_ema(input signed [WIDTH-1:0] sample);
-        reg signed [REF_ACCW-1:0] x_ext;
-        reg signed [REF_ACCW-1:0] diff;
-        reg signed [REF_ACCW-1:0] step;
-        begin
-            // Match RTL timing: output is based on previous y_acc_ref
-            x_ext          = {{(REF_ACCW-WIDTH){sample[WIDTH-1]}}, sample};
-            diff           = x_ext - y_acc_ref;
-            step           = (diff >>> K);
-            ref_out_sample = y_acc_ref[REF_ACCW-1 : (REF_ACCW-WIDTH)];
-            y_acc_ref      = y_acc_ref + step;
-            ref_out_valid  = 1'b1;
         end
     endtask
 
@@ -164,6 +162,8 @@ module moving_avg_top_tb;
                 if (out_sample !== ref_out_sample) begin
                     $display("[TIME %0t] SAMPLE mismatch: out_sample=%0h ref_out_sample=%0h i = %0d", $time, out_sample, ref_out_sample, i);
                     $fatal(1, "Mismatch detected");
+                end else begin
+                    $display("[TIME %0t] SAMPLE match: out_sample=%0h ref_out_sample=%0h i = %0d", $time, out_sample, ref_out_sample, i);
                 end
             end
         end
@@ -186,11 +186,7 @@ module moving_avg_top_tb;
         in_valid  = 1'b0;
         in_sample = 0;
         rst_n     = 1'b0;
-        if (FILTER_TYPE == 2) begin
-            ref_reset_ema();
-        end else begin
-            ref_reset();
-        end
+        ref_reset_auto();
 
         // Reset pulse
         repeat (5) @(negedge clk);
@@ -200,23 +196,23 @@ module moving_avg_top_tb;
         // 1) Zeros (10 samples)
         for (i = 0; i < 10; i = i + 1) begin
             drive_sample(0);
-            if (FILTER_TYPE == 2) ref_push_ema(0); else ref_push(0);
+            ref_push_auto(0);
         end
 
         // 2) Constant (20 samples of 100)
         for (i = 0; i < 20; i = i + 1) begin
             drive_sample(100);
-            if (FILTER_TYPE == 2) ref_push_ema(100); else ref_push(100);
+            ref_push_auto(100);
         end
 
         // 3) Step: 10 samples of 0, then 20 samples of 200
         for (i = 0; i < 10; i = i + 1) begin
             drive_sample(0);
-            if (FILTER_TYPE == 2) ref_push_ema(0); else ref_push(0);
+            ref_push_auto(0);
         end
         for (i = 0; i < 20; i = i + 1) begin
             drive_sample(200);
-            if (FILTER_TYPE == 2) ref_push_ema(200); else ref_push(200);
+            ref_push_auto(200);
         end
 
         // 4) Random (50 samples in a safe range)
@@ -226,7 +222,7 @@ module moving_avg_top_tb;
             rnd_sample = $random;
             rnd_sample = rnd_sample % 512; // roughly -511..+511
             drive_sample(rnd_sample);
-            if (FILTER_TYPE == 2) ref_push_ema(rnd_sample); else ref_push(rnd_sample);
+            ref_push_auto(rnd_sample);
         end
 
         // Let outputs settle a few cycles
