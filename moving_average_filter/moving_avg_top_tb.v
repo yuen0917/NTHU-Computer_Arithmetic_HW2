@@ -11,11 +11,11 @@
 module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
-    localparam integer FILTER_TYPE =  0;            // 0=buffer, 1=SRL, 2=EMA
+    localparam integer FILTER_TYPE =  1;            // 0=buffer, 1=SRL, 2=EMA
     localparam integer WIDTH       = 16;            // data width
     localparam integer N           = 16;            // window size
     localparam integer SHIFT       =  4;            // log2(N)
-    localparam integer DO_ROUND    =  0;            // 1: add 0.5 LSB before shift, 0: no rounding
+    localparam integer DO_ROUND    =  1;            // 1: add 0.5 LSB before shift, 0: no rounding
     localparam integer K           =  3;            // alpha = 1/2^K = 1/8
     localparam integer REF_ACCW    = WIDTH + K + 1; // EMA reference state (used when FILTER_TYPE==2)
 

@@ -14,11 +14,11 @@
 // ============================================================
 
 module moving_avg_top #(
-    parameter FILTER_TYPE = 0,    // 0=buffer, 1=SRL, 2=EMA
+    parameter FILTER_TYPE = 2,    // 0=buffer, 1=SRL, 2=EMA
     parameter WIDTH       = 16,
     parameter N           = 16,
     parameter SHIFT       = 4,
-    parameter DO_ROUND    = 1,
+    parameter DO_ROUND    = 0,
     parameter K           = 3
 )(
     input                          clk,
