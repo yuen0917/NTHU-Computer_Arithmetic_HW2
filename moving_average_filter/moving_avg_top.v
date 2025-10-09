@@ -6,20 +6,20 @@
 //   2 = Exponential Moving Average (EMA)
 // - Pass-through common streaming interface
 // - Parameters:
-//     WIDTH     : data width (signed)
-//     N         : window size (for windowed average)
-//     SHIFT     : log2(N), used by SRL filter (ensure N == 2^SHIFT)
-//     DO_ROUND  : rounding before right shift in SRL filter
-//     K         : EMA shift (alpha = 1 / 2^K)
+//     WIDTH           : data width (signed)
+//     N               : window size (for windowed average)
+//     SHIFT           : log2(N), used by SRL filter (ensure N == 2^SHIFT)
+//     DO_ROUND        : rounding before right shift in SRL filter
+//     K               : EMA shift (alpha = 1 / 2^K)
 // ============================================================
 
 module moving_avg_top #(
-    parameter FILTER_TYPE = 2,    // 0=buffer, 1=SRL, 2=EMA
-    parameter WIDTH       = 16,
-    parameter N           = 16,
-    parameter SHIFT       = 4,
-    parameter DO_ROUND    = 0,
-    parameter K           = 3
+    parameter FILTER_TYPE     =  2,    // 0=buffer, 1=SRL, 2=EMA
+    parameter WIDTH           = 16,
+    parameter N               = 16,
+    parameter SHIFT           =  4,
+    parameter DO_ROUND        =  0,
+    parameter K               =  3
 )(
     input                          clk,
     input                          rst_n,

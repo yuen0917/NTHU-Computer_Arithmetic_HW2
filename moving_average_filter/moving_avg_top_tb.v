@@ -11,13 +11,13 @@
 module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
-    localparam integer FILTER_TYPE =  1;            // 0=buffer, 1=SRL, 2=EMA
-    localparam integer WIDTH       = 16;            // data width
-    localparam integer N           = 16;            // window size
-    localparam integer SHIFT       =  4;            // log2(N)
-    localparam integer DO_ROUND    =  1;            // 1: add 0.5 LSB before shift, 0: no rounding
-    localparam integer K           =  3;            // alpha = 1/2^K = 1/8
-    localparam integer REF_ACCW    = WIDTH + K + 1; // EMA reference state (used when FILTER_TYPE==2)
+    localparam integer FILTER_TYPE     =  1;            // 0=buffer, 1=SRL, 2=EMA
+    localparam integer WIDTH           = 16;            // data width
+    localparam integer N               = 16;            // window size
+    localparam integer SHIFT           =  4;            // log2(N)
+    localparam integer DO_ROUND        =  1;            // 1: add 0.5 LSB before shift, 0: no rounding
+    localparam integer K               =  3;            // alpha = 1/2^K = 1/8
+    localparam integer REF_ACCW        = WIDTH + K + 1; // EMA reference state (used when FILTER_TYPE==2)
 
     // DUT I/O
     reg                     clk;
@@ -138,7 +138,9 @@ module moving_avg_top_tb;
                 next_sum_rnd   = next_sum + $signed(round_add);
                 avg_ext        = next_sum_rnd >>> SHIFT;
                 ref_out_sample = avg_ext[WIDTH-1:0];
-                ref_out_valid  = (ref_count >= (N-1));
+                
+                // Buffer/SRL versions: valid after N-1 samples
+                ref_out_valid = (ref_count >= (N-1));
             end
         end
     endtask
@@ -169,6 +171,7 @@ module moving_avg_top_tb;
         end
     endtask
 
+
     // Monitor DUT outputs to compare against reference each cycle
     always @(negedge clk) begin
         if (rst_n) begin
@@ -192,9 +195,9 @@ module moving_avg_top_tb;
         repeat (5) @(negedge clk);
         rst_n = 1'b1;
         repeat (2) @(negedge clk);
-
-        // 1) Zeros (10 samples)
-        for (i = 0; i < 10; i = i + 1) begin
+        
+        // 1) Zeros (warm-up + margin)
+        for (i = 0; i < (N + 10); i = i + 1) begin
             drive_sample(0);
             ref_push_auto(0);
         end
@@ -228,7 +231,7 @@ module moving_avg_top_tb;
         // Let outputs settle a few cycles
         repeat (10) @(negedge clk);
 
-        $display("TB completed without mismatches. WIDTH=%0d N=%0d", WIDTH, N);
+        $display("TB completed without mismatches. WIDTH=%0d N=%0d FILTER_TYPE=%0d", WIDTH, N, FILTER_TYPE);
         $finish;
     end
 
