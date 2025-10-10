@@ -105,9 +105,9 @@ module adders_top #(
                 end
 
                 ACCUMULATING: begin
-                    // Shift in new bits (LSB first)
-                    a_r <= {a_bit_in, a_r[63:1]};
-                    b_r <= {b_bit_in, b_r[63:1]};
+                    // Place incoming LSB-first bits directly at their bit positions
+                    a_r[cycle_cnt] <= a_bit_in;
+                    b_r[cycle_cnt] <= b_bit_in;
 
                     if (cycle_cnt == 7'd63) begin
                         cycle_cnt <= 7'd0;

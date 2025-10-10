@@ -23,7 +23,7 @@ module adders_top_tb;
     wire        ready_out;
 
     // Device Under Test (set ADDER_TYPE: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
-    localparam ADDER_TYPE_TB = 0;
+    localparam ADDER_TYPE_TB = 2;
     adders_top #(
         .ADDER_TYPE(ADDER_TYPE_TB),
         .CSA_BLOCK_WIDTH(16)

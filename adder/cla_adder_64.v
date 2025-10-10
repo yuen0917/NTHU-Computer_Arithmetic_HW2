@@ -11,10 +11,10 @@ module cla_adder_64 (
   output wire        cout
 );
   localparam integer WIDTH = 64;
-  localparam integer BLK   = 4;   // inner lookahead block width
-  localparam integer GRP   = 4;   // number of blocks per group in level-2
-  localparam integer NB    = WIDTH/BLK;       // number of blocks (16)
-  localparam integer NG    = NB/GRP;          // number of level-2 groups (4)
+  localparam integer BLK   = 4;          // inner lookahead block width
+  localparam integer GRP   = 4;          // number of blocks per group in level-2
+  localparam integer NB    = WIDTH/BLK;  // number of blocks (16)
+  localparam integer NG    = NB/GRP;     // number of level-2 groups (4)
 
   // bitwise p,g
   wire [WIDTH-1:0] p = a ^ b;

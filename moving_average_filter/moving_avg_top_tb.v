@@ -11,7 +11,7 @@
 module moving_avg_top_tb;
 
     // Parameters (match DUT defaults)
-    localparam integer FILTER_TYPE     =  1;            // 0=buffer, 1=SRL, 2=EMA
+    localparam integer FILTER_TYPE     =  2;            // 0=buffer, 1=SRL, 2=EMA
     localparam integer WIDTH           = 16;            // data width
     localparam integer N               = 16;            // window size
     localparam integer SHIFT           =  4;            // log2(N)

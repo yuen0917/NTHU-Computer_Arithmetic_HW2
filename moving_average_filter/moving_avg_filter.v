@@ -10,7 +10,7 @@
 
 module moving_avg_filter #(
 	parameter WIDTH = 16,
-	parameter N = 16
+	parameter N     = 16
 )(
 	input                         clk,
 	input                         rst_n,
@@ -37,8 +37,8 @@ module moving_avg_filter #(
 	reg signed [SUM_WIDTH-1:0] sum;
 
 	// Combinational helpers
-	wire signed [WIDTH-1:0] old_sample = window[ptr];
-	wire signed [SUM_WIDTH-1:0] next_sum = sum + $signed({{(SUM_WIDTH-WIDTH){in_sample[WIDTH-1]}}, in_sample})
+	wire signed [WIDTH-1:0]     old_sample = window[ptr];
+	wire signed [SUM_WIDTH-1:0] next_sum   = sum + $signed({{(SUM_WIDTH-WIDTH){in_sample[WIDTH-1]}}, in_sample})
 		                                         - $signed({{(SUM_WIDTH-WIDTH){old_sample[WIDTH-1]}}, old_sample});
 
 	integer i;
