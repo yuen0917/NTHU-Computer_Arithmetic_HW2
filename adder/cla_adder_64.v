@@ -44,8 +44,6 @@ module cla_adder_64 (
       end
 
       // Full expansion for BLK=4:
-      // P_block = p3&p2&p1&p0
-      // G_block = g3 | (p3&g2) | (p3&p2&g1) | (p3&p2&p1&g0)
       // If you change BLK to 8, please rewrite the corresponding expansion or use general prefix.
       wire Pblk =  pp[3] &  pp[2] &  pp[1] &  pp[0];
       wire Gblk =  gg[3] |
@@ -79,22 +77,15 @@ module cla_adder_64 (
 
       // group P/G for 4 blocks
       wire Pgrp = p3 & p2 & p1 & p0;
-      wire Ggrp = g3 |
-                  (p3 & g2) |
-                  (p3 & p2 & g1) |
-                  (p3 & p2 & p1 & g0);
+      wire Ggrp = g3 |(p3 & g2) |(p3 & p2 & g1) |(p3 & p2 & p1 & g0);
+      
       assign GP_group_P[gi] = Pgrp;
       assign GP_group_G[gi] = Ggrp;
 
       // carry into next group
-      // c_group[gi+1] = Ggrp | (Pgrp & c_group[gi])
       assign c_group[gi+1] = Ggrp | (Pgrp & c_group[gi]);
 
       // now distribute carries to blocks inside this group
-      // c_block[base]     = c_group[gi];
-      // c_block[base+1]   = g0 | (p0 & c_block[base]);
-      // c_block[base+2]   = g1 | (p1 & c_block[base+1]);
-      // c_block[base+3]   = g2 | (p2 & c_block[base+2]);
       assign c_block[base+0] = c_group[gi];
       assign c_block[base+1] = g0 | (p0 & c_block[base+0]);
       assign c_block[base+2] = g1 | (p1 & c_block[base+1]);

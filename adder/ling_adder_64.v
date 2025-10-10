@@ -9,6 +9,7 @@ module ling_adder_64 (
   output wire        cout
 );
   // 1) bit-level p,g,t
+  // p: propagate, g: generate, t: transitive
   wire [63:0] p = a ^ b;
   wire [63:0] g = a & b;
   wire [63:0] t = a | b;
@@ -27,7 +28,7 @@ module ling_adder_64 (
       wire [3:0] pp = p[H:L];
       wire [3:0] gg = g[H:L];
 
-      assign Pblk[bi] = &pp; // p3&p2&p1&p0
+      assign Pblk[bi] = &pp; // p3 & p2 & p1 & p0
 
       // Gblk = g3 | p3 g2 | p3 p2 g1 | p3 p2 p1 g0
       assign Gblk[bi] = gg[3]
@@ -131,8 +132,7 @@ module ling_adder_64 (
       wire       h0   = gg[0] | (pp[0] & h_m1);
       wire       h1   = gg[1] | (pp[1] & gg[0]) | (pp[1] & pp[0] & h_m1);
       wire       h2   = gg[2] | (pp[2] & gg[1]) | (pp[2] & pp[1] & gg[0]) | (pp[2] & pp[1] & pp[0] & h_m1);
-      wire       h3   = gg[3] | (pp[3] & gg[2]) | (pp[3] & pp[2] & gg[1]) | (pp[3] & pp[2] & pp[1] & gg[0])
-                                 | (pp[3] & pp[2] & pp[1] & pp[0] & h_m1);
+      wire       h3   = gg[3] | (pp[3] & gg[2]) | (pp[3] & pp[2] & gg[1]) | (pp[3] & pp[2] & pp[1] & gg[0]) | (pp[3] & pp[2] & pp[1] & pp[0] & h_m1);
 
       // sums: s[i] = p[i] ^ (h[i-1] & t[i-1]); with t[-1]=1
       assign sum[L+0] = pp[0] ^ (h_m1);
@@ -140,7 +140,6 @@ module ling_adder_64 (
       assign sum[L+2] = pp[2] ^ (h1   & tt[1]);
       assign sum[L+3] = pp[3] ^ (h2   & tt[2]);
 
-      // block's carry-out is h3; for sanity it should equal Hblk[bj+1]
     end
   endgenerate
 
