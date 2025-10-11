@@ -6,18 +6,18 @@
 // ============================================================
 
 module adders_top #(
-    parameter ADDER_TYPE = 2,              // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
+    parameter         ADDER_TYPE = 0,      // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
     parameter integer CSA_BLOCK_WIDTH = 16 // CSA segment width (e.g., 16 or 8)
 ) (
     input  wire        clk,
     input  wire        rst_n,
     input  wire        a_bit_in,           // Serial input for operand A (LSB first)
     input  wire        b_bit_in,           // Serial input for operand B (LSB first)
-    input  wire        cin_in,             // Carry input (valid only on cycle 0)
-    input  wire        start_in,           // Start signal to begin accumulation
+    input  wire        cin_in,             // Carry input
+    input  wire        start_in,           // Start signal
     output reg  [63:0] sum_out,
     output reg         cout_out,
-    output reg         ready_out           // Ready signal when computation is complete
+    output reg         ready_out           // Ready signal
 );
 
     // Serial accumulation registers
@@ -106,8 +106,8 @@ module adders_top #(
 
                 ACCUMULATING: begin
                     // Place incoming LSB-first bits directly at their bit positions
-                    a_r[cycle_cnt] <= a_bit_in;
-                    b_r[cycle_cnt] <= b_bit_in;
+                    a_r <= {a_bit_in, a_r[63:1]};
+                    b_r <= {b_bit_in, b_r[63:1]};
 
                     if (cycle_cnt == 7'd63) begin
                         cycle_cnt <= 7'd0;

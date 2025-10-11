@@ -33,6 +33,8 @@ module carry_skip_adder_64 (
 
       // Intra-block bit-level carry
       wire [BLK:0] c;    // c[0] = c_blk[bi]
+
+      // Intra-block carry-in
       assign c[0] = c_blk[bi];
 
       // Intra-block ripple expansion and sum generation
@@ -44,6 +46,8 @@ module carry_skip_adder_64 (
 
       // Block propagate
       wire P_all = &p[base +: BLK];
+
+      // Block ripple carry-out
       assign P_blk[bi]  = P_all;
       assign Cout_blk[bi] = c[BLK];
 
