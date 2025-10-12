@@ -23,10 +23,12 @@ module adders_top_tb;
     wire        ready_out;
 
     // Device Under Test (set ADDER_TYPE: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
-    localparam ADDER_TYPE_TB = 0;
+    localparam ADDER_TYPE_TB = 4;
+    localparam ENABLE_STARTING_STATE_TB = 0;  // 1=enable STARTING state, 0=skip it
     adders_top #(
         .ADDER_TYPE(ADDER_TYPE_TB),
-        .CSA_BLOCK_WIDTH(16)
+        .CSA_BLOCK_WIDTH(16),
+        .ENABLE_STARTING_STATE(ENABLE_STARTING_STATE_TB)
     ) dut (
         .clk(clk),
         .rst_n(rst_n),
@@ -53,6 +55,8 @@ module adders_top_tb;
     task check_vector(input [63:0] a, input [63:0] b, input cin);
         reg [64:0] exp;
         integer i;
+        integer timeout_cnt;
+        reg ready_d;
         begin
             exp = ref_add(a, b, cin);
 
@@ -64,7 +68,16 @@ module adders_top_tb;
 
             // Wait for ready state (ready_out should be low when idle)
             @(posedge clk);
-            while (ready_out) @(posedge clk);
+            timeout_cnt = 0;
+            while (ready_out && timeout_cnt < 10) begin
+                @(posedge clk);
+                timeout_cnt = timeout_cnt + 1;
+            end
+
+            if (timeout_cnt >= 10) begin
+                $display("[ERROR] Timeout waiting for ready_out to go low");
+                $fatal(1);
+            end
 
             // Additional safety: wait one more cycle to ensure clean state
             @(posedge clk);
@@ -84,10 +97,20 @@ module adders_top_tb;
                 @(posedge clk);
             end
 
-            // Wait for computation to complete
-            while (!ready_out) @(posedge clk);
+            // Wait for ready_out assertion with timeout protection
+            @(posedge clk);
+            timeout_cnt = 0;
+            while (!ready_out && timeout_cnt < 100) begin
+                @(posedge clk);
+                timeout_cnt = timeout_cnt + 1;
+            end
 
-            // Check results
+            if (timeout_cnt >= 100) begin
+                $display("[ERROR] Timeout waiting for ready_out assertion");
+                $fatal(1);
+            end
+
+            // Check results immediately on ready assertion
             if ({cout_out, sum_out} !== exp) begin
                 $display("[DUT mismatch] a=%h b=%h cin=%0d exp={%0d,%h} got={%0d,%h}",
                          a, b, cin, exp[64], exp[63:0], cout_out, sum_out);
@@ -132,10 +155,11 @@ module adders_top_tb;
 
         // Wait for reset deassertion
         @(posedge rst_n);
-        @(posedge clk);
+        repeat(5) @(posedge clk);
 
         // 1) Edge cases
         $display("Starting edge case tests...");
+        // Test with simple pattern to debug bit placement
         check_vector(64'h0000_0000_0000_0001, 64'h0000_0000_0000_0000, 1'b0);
         $display("First test completed, starting second test...");
         check_vector(64'hFFFF_FFFF_FFFF_FFFF, 64'h0000_0000_0000_0001, 1'b0);

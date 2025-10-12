@@ -6,8 +6,9 @@
 // ============================================================
 
 module adders_top #(
-    parameter         ADDER_TYPE = 0,      // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
-    parameter integer CSA_BLOCK_WIDTH = 16 // CSA segment width (e.g., 16 or 8)
+    parameter         ADDER_TYPE = 4,      // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
+    parameter integer CSA_BLOCK_WIDTH = 16, // CSA segment width (e.g., 16 or 8)
+    parameter         ENABLE_STARTING_STATE = 1  // 1=enable STARTING state, 0=skip it
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -17,35 +18,50 @@ module adders_top #(
     input  wire        start_in,           // Start signal
     output reg  [63:0] sum_out,
     output reg         cout_out,
-    output reg         ready_out           // Ready signal
+    output wire        ready_out           // Ready signal
 );
 
     // Serial accumulation registers
-    reg [63:0] a_r;
-    reg [63:0] b_r;
+    (* shreg_extract = "no" *) reg [63:0] a_r;
+    (* shreg_extract = "no" *) reg [63:0] b_r;
     reg        cin_r;
     reg [6:0]  cycle_cnt;    // Counter for 64 cycles (0-63)
+    reg        ready_q;
 
     // State machine states
     localparam IDLE         = 2'b00;
-    localparam ACCUMULATING = 2'b01;
-    localparam COMPUTING    = 2'b10;
+    localparam STARTING     = 2'b01;
+    localparam ACCUMULATING = 2'b10;
+    localparam COMPUTING    = 2'b11;
 
-    reg   [1:0] state;        // Current state
+    reg   [1:0] state;        // Current state (need 2 bits for 4 states)
     reg   [1:0] next_state;   // Next state
 
     // Adder comb outputs
     wire [63:0] sum_w;
     wire        cout_w;
 
+
     // State machine: State transition logic (combinational)
     always @(*) begin
         case (state)
             IDLE: begin
                 if (start_in) begin
-                    next_state = ACCUMULATING;
+                    if (ENABLE_STARTING_STATE) begin
+                        next_state = STARTING;
+                    end else begin
+                        next_state = ACCUMULATING;
+                    end
                 end else begin
                     next_state = IDLE;
+                end
+            end
+
+            STARTING: begin
+                if (ENABLE_STARTING_STATE) begin
+                    next_state = ACCUMULATING;
+                end else begin
+                    next_state = IDLE;  // Should not reach here if disabled
                 end
             end
 
@@ -76,7 +92,7 @@ module adders_top #(
         end
     end
 
-    // State machine: Output logic (sequential) - Combined with output registers
+    // State machine: Input accumulation and output logic (sequential)
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             // Reset all internal registers
@@ -84,28 +100,35 @@ module adders_top #(
             b_r       <= 64'd0;
             cin_r     <=  1'b0;
             cycle_cnt <=  7'd0;
-            // Reset all output registers
             sum_out   <= 64'd0;
             cout_out  <=  1'b0;
-            ready_out <=  1'b0;
+            ready_q   <=  1'b0;
         end else begin
             case (state)
                 IDLE: begin
-                    if (start_in) begin
-                        // Start accumulation
+                    // Initialize registers here if STARTING state is disabled
+                    if (!ENABLE_STARTING_STATE && start_in) begin
                         a_r       <= 64'd0;
                         b_r       <= 64'd0;
                         cin_r     <= cin_in;
                         cycle_cnt <=  7'd0;
-                        ready_out <=  1'b0;
-                    end else if (ready_out) begin
-                        // Auto-reset ready signal when idle (prevents deadlock)
-                        ready_out <= 1'b0;
                     end
+                    ready_q <= 1'b0;
+                end
+
+                STARTING: begin
+                    // Initialize registers in STARTING state (only if enabled)
+                    if (ENABLE_STARTING_STATE) begin
+                        a_r       <= 64'd0;
+                        b_r       <= 64'd0;
+                        cin_r     <= cin_in;
+                        cycle_cnt <=  7'd0;
+                    end
+                    ready_q <= 1'b0;
                 end
 
                 ACCUMULATING: begin
-                    // Place incoming LSB-first bits directly at their bit positions
+                    // Place incoming LSB-first bits at correct positions
                     a_r <= {a_bit_in, a_r[63:1]};
                     b_r <= {b_bit_in, b_r[63:1]};
 
@@ -114,15 +137,14 @@ module adders_top #(
                     end else begin
                         cycle_cnt <= cycle_cnt + 7'd1;
                     end
-                    // Keep ready_out low during accumulation
-                    ready_out <= 1'b0;
+                    ready_q <= 1'b0;
                 end
 
                 COMPUTING: begin
-                    // Capture adder results
-                    sum_out   <= sum_w;
-                    cout_out  <= cout_w;
-                    ready_out <= 1'b1;
+                    // Capture adder results and assert ready
+                    sum_out  <= sum_w;
+                    cout_out <= cout_w;
+                    ready_q  <= 1'b1;
                 end
 
                 default: begin
@@ -131,11 +153,15 @@ module adders_top #(
                     b_r       <= 64'd0;
                     cin_r     <=  1'b0;
                     cycle_cnt <=  7'd0;
-                    ready_out <=  1'b0;
+                    sum_out   <= 64'd0;
+                    cout_out  <=  1'b0;
+                    ready_q   <=  1'b0;
                 end
             endcase
         end
     end
+
+    assign ready_out = ready_q;
 
     // Select adder implementation
     generate
@@ -193,6 +219,4 @@ module adders_top #(
         end
     endgenerate
 
-
 endmodule
-
