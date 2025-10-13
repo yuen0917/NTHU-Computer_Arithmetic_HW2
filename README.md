@@ -57,28 +57,6 @@
   - Wrapper I/O (serial input): `a_bit_in`, `b_bit_in` (LSB-first), `cin_in`, `start_in`; outputs: `sum_out[63:0]`, `cout_out`, `ready_out`.
   - All adders operate on signed 64-bit inputs; `adders_top` provides a unified, registered interface for timing analysis.
 
-## Quick Simulation (Icarus Verilog)
-
-- Moving-average top TB (select implementation via `FILTER_TYPE`)
-
-```text
-iverilog -g2005 -o ma_tb.out \
-  moving_avg_filter.v moving_avg_srl_filter.v moving_avg_ema_filter.v \
-  moving_avg_top.v moving_avg_top_tb.v
-vvp ma_tb.out
-```
-
-- 64-bit adders top TB
-
-```text
-iverilog -g2005 -o adders_tb.out \
-  rca_adder_64.v carry_sel_adder_64.v carry_skip_adder_64.v \
-  cla_adder_64.v ling_adder_64.v adders_top.v adders_top_tb.v
-vvp adders_tb.out
-```
-
-- Waveform output: `moving_avg_top_tb.vcd`, `adders_top_tb.vcd`
-
 ## How to Select Filter / Adder
 
 - In `moving_avg_top_tb.v` set:
@@ -91,19 +69,23 @@ vvp adders_tb.out
 ## Vivado Notes
 
 - Add these files to simulation/synthesis:
-  - Filters: `moving_avg_filter.v`, `moving_avg_srl_filter.v`, `moving_avg_ema_filter.v`, `moving_avg_top.v`, `moving_avg_top_tb.v`
-  - Adders: `rca_adder_64.v`, `carry_sel_adder_64.v`, `carry_skip_adder_64.v`, `cla_adder_64.v`, `ling_adder_64.v`, `adders_top.v`, `adders_top_tb.v`
-  - Constraints: `HW2_constraint.xdc`
+  - Filters: 
+    - `moving_avg_filter.v`, 
+    - `moving_avg_srl_filter.v` 
+    - `moving_avg_ema_filter.v` 
+    - `moving_avg_top.v`
+    - `moving_avg_top_tb.v`(testbench)
+  - Adders: 
+    - `rca_adder_64.v`
+    - `carry_sel_adder_64.v`
+    - `carry_skip_adder_64.v`
+    - `cla_adder_64.v`
+    - `ling_adder_64.v`
+    - `adders_top.v`
+    - `adders_top_tb.v`(testbench)
+  - Constraints: 
+    - `HW2_constraint.xdc`
 - On Xilinx devices, SRL version infers `SRLC32E`; behavioral model is used in generic simulation.
-
-## Repository Layout (condensed)
-
-- Filters: `moving_avg_filter.v`, `moving_avg_srl_filter.v`, `moving_avg_ema_filter.v`, `moving_avg_top.v`
-- Adders: `rca_adder_64.v`, `carry_sel_adder_64.v`, `carry_skip_adder_64.v`, `cla_adder_64.v`, `ling_adder_64.v`, `adders_top.v`
-- Testbench: `moving_avg_top_tb.v`, `adders_top_tb.v`
-- Docs/Proj: `HW2.pdf`
-- Constraints: `HW2_constraint.xdc`
-- Xilinx Project: `HW2_adders_vivado/`, `HW2_moving_avg_filter_vivado/`
 
 ## License/Notes
 
