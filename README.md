@@ -28,6 +28,18 @@
 - 64-bit Adder Wrapper
   - `adders_top`: Convenience top instantiating adders.
 
+## Interfaces
+
+- Adders wrapper `adders_top` (registered wrapper for timing analysis)
+  - Parameters: `ADDER_TYPE` (0=RCA, 1=Carry-Select, 2=Ling, 3=CLA, 4=Carry-Skip), `CSA_BLOCK_WIDTH` (e.g., 16 or 8), `ENABLE_STARTING_STATE` (1=enable STARTING state, 0=skip)
+  - Inputs: `clk`, `rst_n`, `a_bit_in` (LSB-first serial A), `b_bit_in` (LSB-first serial B), `cin_in`, `start_in`
+  - Outputs: `sum_out[63:0]`, `cout_out`, `ready_out` (asserted when result valid)
+  - Behavior: Accumulates 64 bits over 64 cycles, then computes selected adder and asserts `ready_out` for one cycle
+
+- Moving-average wrapper `moving_avg_top`
+  - Parameters: `FILTER_TYPE` (0=buffer, 1=SRL, 2=EMA; default 2), `WIDTH` (default 16), `N` (default 16), `SHIFT` (default 4; require `N == 2^SHIFT` for SRL), `DO_ROUND` (default 0), `K` (default 3; EMA uses `alpha = 1/2^K`)
+  - Interface: `clk`, `rst_n`, `in_valid`, `in_sample[WIDTH-1:0]` (signed), `out_valid`, `out_sample[WIDTH-1:0]` (signed)
+
 ## Key Parameters and Constraints
 
 - Moving-average
@@ -39,8 +51,10 @@
     - `K` controls smoothing (`alpha = 1/2^K`), single-cycle latency, no warm-up.
 
 - 64-bit Adders
-  - `ADDER_TYPE` (for wrapper): 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip.
+  - `ADDER_TYPE` (for wrapper): 0=RCA, 1=Carry-Select, 2=Ling, 3=CLA, 4=Carry-Skip.
   - `CSA_BLOCK_WIDTH`: 16 or 8 (for carry-select adder segmentation).
+  - `ENABLE_STARTING_STATE`: 1 to insert a STARTING cycle for initialization, 0 to begin accumulating immediately on `start_in`.
+  - Wrapper I/O (serial input): `a_bit_in`, `b_bit_in` (LSB-first), `cin_in`, `start_in`; outputs: `sum_out[63:0]`, `cout_out`, `ready_out`.
   - All adders operate on signed 64-bit inputs; `adders_top` provides a unified, registered interface for timing analysis.
 
 ## Quick Simulation (Icarus Verilog)
@@ -71,7 +85,7 @@ vvp adders_tb.out
   - `FILTER_TYPE`: 0=buffer, 1=SRL, 2=EMA
   - For SRL: set consistent `N` and `SHIFT` (e.g., N=16, SHIFT=4, and ensure `N == 2^SHIFT`) and choose `DO_ROUND`.
 - In `adders_top_tb.v` set:
-  - `ADDER_TYPE`: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip.
+  - `ADDER_TYPE`: 0=RCA, 1=Carry-Select, 2=Ling, 3=CLA, 4=Carry-Skip.
   - `CSA_BLOCK_WIDTH`: 16 or 8 (for carry-select adder segmentation).
 
 ## Vivado Notes

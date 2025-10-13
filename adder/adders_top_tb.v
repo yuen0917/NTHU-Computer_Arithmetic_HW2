@@ -22,7 +22,7 @@ module adders_top_tb;
     wire        cout_out;
     wire        ready_out;
 
-    // Device Under Test (set ADDER_TYPE: 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip)
+    // Device Under Test (set ADDER_TYPE: 0=RCA, 1=Carry-Select, 2=Ling, 3=CLA, 4=Carry-Skip)
     localparam ADDER_TYPE_TB = 4;
     localparam ENABLE_STARTING_STATE_TB = 0;  // 1=enable STARTING state, 0=skip it
     adders_top #(

@@ -6,8 +6,8 @@
 // ============================================================
 
 module adders_top #(
-    parameter         ADDER_TYPE = 4,      // 0=RCA, 1=CSA, 2=Ling, 3=CLA, 4=Carry-Skip
-    parameter integer CSA_BLOCK_WIDTH = 16, // CSA segment width (e.g., 16 or 8)
+    parameter         ADDER_TYPE = 4,            // 0=RCA, 1=Carry-Select, 2=Ling, 3=CLA, 4=Carry-Skip
+    parameter integer CSA_BLOCK_WIDTH = 16,      // CSA segment width (e.g., 16 or 8)
     parameter         ENABLE_STARTING_STATE = 1  // 1=enable STARTING state, 0=skip it
 ) (
     input  wire        clk,
@@ -173,7 +173,7 @@ module adders_top #(
                 .sum (sum_w),
                 .cout(cout_w)
             );
-        end else if (ADDER_TYPE == 1) begin : gen_csa
+        end else if (ADDER_TYPE == 1) begin : gen_carry_select
             carry_sel_adder_64 #(
                 .BLOCK_WIDTH(CSA_BLOCK_WIDTH)
             ) u_adder (
