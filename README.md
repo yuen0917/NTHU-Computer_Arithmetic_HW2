@@ -86,6 +86,7 @@
   - Constraints: 
     - `HW2_constraint.xdc`
 - On Xilinx devices, SRL version infers `SRLC32E`; behavioral model is used in generic simulation.
+- Board: `Xilinx Kria KR260`
 
 ## License/Notes
 
